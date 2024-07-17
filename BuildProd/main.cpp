@@ -1,53 +1,55 @@
 #include <SPI.h>
 #include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include <GyverTimers.h>
+#include <GyverOLED.h>
 
 #include "StepEngine.h"
 #include "Button.h"
 
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
-
-#define OLED_RESET     -1
-#define SCREEN_ADDRESS 0x3C 
-
 #define MICROSTEP 1600
 
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+GyverOLED<SSD1306_128x32, OLED_BUFFER> oled;
 StepEngine eng1(5, 2);
-Button btn_start(10);
+Button btn_start(3);
 
 void setup()
 {
+    pinMode(11, OUTPUT); // GND для OLED
+    digitalWrite(11, LOW);
+
     Serial.begin(9600);
     Serial.setTimeout(10);
 
-    // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
-    /*if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-      Serial.println(F("SSD1306 allocation failed"));
-      for(;;); // Don't proceed, loop forever
-    }*/
+    oled.init();
+    Wire.setClock(800000L);
+    oled.setScale(2);
+    oled.clear();
+    oled.update();
 
-    // Show initial display buffer contents on the screen --
-    // the library initializes this with an Adafruit splash screen.
-    //display.display();
-    //delay(2000); // Pause for 2 seconds
+    Timer5.setFrequency(1);
+    Timer5.enableISR(CHANNEL_A);
+}
 
-    // Clear the buffer
-    //display.clearDisplay();
+volatile bool show = 0;
+uint counter = 0;
+uint rounds = 0;
+
+
+ISR(TIMER5_A)
+{
+    show = 1;
 }
 
 void loop()
-{   
-    //display.clearDisplay();
-
-    //display.setTextSize(2);             
-    //display.setTextColor(SSD1306_WHITE);       
-    //display.setCursor(0,0);            
-    //display.println("Rounds " + String(b));
-
-    //display.display();
+{
+    if (show)
+    {
+        oled.home();
+        oled.print("R " + String(rounds));
+        oled.update();
+        oled.clear();
+        show = 0;
+    }
 
     if (!btn_start.getSignal())
     {
@@ -58,7 +60,15 @@ void loop()
                 break;
             }
 
-            eng1.spin(150);
+            eng1.spin(200);
+            counter++;
         }
+
+        rounds = counter / MICROSTEP;
+    }
+    else
+    {
+        rounds = 0;
+        counter = 0;
     }
 }

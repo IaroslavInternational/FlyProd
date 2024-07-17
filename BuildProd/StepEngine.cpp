@@ -2,8 +2,8 @@
 
 StepEngine::StepEngine(uint stepPin, uint dirPin)
 {	
-	this->stepPin;
-	this->dirPin;
+	this->stepPin = stepPin;
+	this->dirPin = dirPin;
 
 	direction = HIGH;
 
