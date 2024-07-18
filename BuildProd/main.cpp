@@ -3,15 +3,27 @@
 #include <GyverTimers.h>
 #include <GyverOLED.h>
 
+
+
 #include "StepEngine.h"
 #include "Button.h"
 
 #define MICROSTEP 1600
 
-GyverOLED<SSD1306_128x32, OLED_BUFFER> oled;
-StepEngine eng1(5, 2);
+GyverOLED<SSD1306_128x32, OLED_BUFFER> oled(0x3C);
+StepEngine eng1(5, 2, S_3, 0.49f);
 Button btn_start(3);
 
+volatile bool show    = 0; // Флаг отрисовки данных на OLED
+unsigned long counter = 0; // Счётчик оборотов
+uint          rounds  = 0; // Кол-во оборотов сначала старта
+
+void print_log()
+{
+    Serial.println(eng1.get_log());
+}
+
+// Функция инициализации
 void setup()
 {
     pinMode(11, OUTPUT); // GND для OLED
@@ -28,12 +40,9 @@ void setup()
 
     Timer5.setFrequency(1);
     Timer5.enableISR(CHANNEL_A);
+
+    print_log();
 }
-
-volatile bool show = 0;
-uint counter = 0;
-uint rounds = 0;
-
 
 ISR(TIMER5_A)
 {
@@ -45,7 +54,7 @@ void loop()
     if (show)
     {
         oled.home();
-        oled.print("R " + String(rounds));
+        oled.print(String(rounds * eng1.get_k()) + " ml");
         oled.update();
         oled.clear();
         show = 0;
@@ -60,7 +69,7 @@ void loop()
                 break;
             }
 
-            eng1.spin(200);
+            eng1.spin();
             counter++;
         }
 
