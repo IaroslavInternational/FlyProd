@@ -11,6 +11,7 @@ public:
 	int getSignal();
 	void tick();
 	bool isClick();
+	bool isHolded();
 private:
 	GButton btn;
 	uint   pin;			

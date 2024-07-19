@@ -8,8 +8,22 @@
 
 #define MICROSTEP 1600
 
+enum mode
+{
+    Single_Engine = 1,
+    Double_Engine,
+    Tripple_Engine,
+    Four_Engine,
+    Five_Engine,
+    Six_Engine,
+    Count
+};
+
+
+mode work_mode = Single_Engine; // Режим работы
+
 GyverOLED<SSD1306_128x32, OLED_BUFFER> oled(0x3C);
-StepEngine eng1(5, 2, S_3, 0.49f);
+StepEngine eng1(5, 2, S_3, 0.66f);
 Button btn_start(3);
 
 volatile bool show    = 0; // Флаг отрисовки данных на OLED
@@ -19,14 +33,120 @@ uint          param = 0;
 
 String menu[] = 
 { 
-    "Menu 1", 
-    "Menu 2", 
-    "Menu 3" 
+    "Заливка", 
+    "Настройки" 
 };
 
+// Вывод лога
 void print_log()
 {
     Serial.println(eng1.get_log());
+}
+
+// Выбор двигателя
+void chose_engine(mode m)
+{
+
+}
+
+// Функция калибровки двигателя
+void settings(StepEngine* engine)
+{
+    bool isFilled     = 0;
+    bool isCalibrated = 0;
+    uint clicks       = 0;
+
+    oled.autoPrintln(true);
+
+    for (int i = 0; i < 5; i++)
+    {
+        engine->spin();
+    }
+
+    while (true)
+    {
+        btn_start.tick();
+
+        if (!isFilled)
+        {
+            oled.home();
+            oled.println("Наполните трубку");
+            oled.update();
+            oled.clear();
+
+            if (btn_start.isClick())
+            {
+                engine->set_speed(S_2);
+
+                for (int i = 0; i < MICROSTEP * 5; i++)
+                {
+                    engine->spin();
+                }
+
+                engine->set_speed(S_3);
+
+                isFilled = 1;
+            }
+        }
+        else
+        {
+            oled.home();
+            oled.println("Наберите");
+            oled.println("50ml");
+            oled.update();
+            oled.clear();
+
+            if (btn_start.isHolded())
+            {
+                clicks++;
+            }
+
+            if (clicks != 2 && clicks > 0)
+            {
+                for (int i = 0; i < MICROSTEP; i++)
+                {
+                    engine->spin();
+                    counter++;
+                }
+            }
+
+            if (clicks == 2)
+            {
+                rounds = counter / MICROSTEP;
+
+                oled.home();
+                oled.println("50ml - " + String(rounds) + "r");
+                oled.update();
+                oled.clear();
+
+                delay(1500);
+
+                isCalibrated = 1;
+            }
+        }
+
+        if (isFilled && isCalibrated)
+        {
+            oled.home();
+            oled.println("Настройка завершена");
+            oled.update();
+            oled.clear();
+
+            delay(1500);
+
+            oled.home();
+            oled.println("k = " + String(50.0f/rounds));
+            oled.update();
+            oled.clear();
+
+            delay(5000);
+
+            oled.autoPrintln(false);
+
+            return;
+        }
+
+    }
 }
 
 // Функция инициализации
@@ -57,7 +177,7 @@ void setup()
 
         if (btn_start.isClick())
         {
-            if (param + 1 < 3)
+            if (param + 1 < (sizeof(menu) / sizeof(*menu)))
             {
                 param++;
             }
@@ -65,6 +185,26 @@ void setup()
             {
                 param = 0;
             }
+        }
+        else if (btn_start.isHolded())
+        {
+            switch (param)
+            {
+            case 0:
+                for (;;)
+                {
+                    run();
+                }
+                break;
+            case 1:
+                chose_engine(work_mode);
+                settings(&eng1);
+                break;
+            default:
+                break;
+            }
+
+            param = 0;
         }
 
         oled.home();
@@ -79,7 +219,7 @@ ISR(TIMER5_A)
     show = 1;
 }
 
-void loop()
+void run()
 {
     if (show)
     {
@@ -110,4 +250,9 @@ void loop()
         rounds = 0;
         counter = 0;
     }
+}
+
+void loop()
+{
+
 }

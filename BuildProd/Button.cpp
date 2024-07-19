@@ -23,3 +23,8 @@ bool Button::isClick()
 {
 	return btn.isClick();
 }
+
+bool Button::isHolded()
+{
+	return btn.isHolded();
+}
