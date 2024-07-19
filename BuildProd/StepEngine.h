@@ -23,16 +23,17 @@ public:
 	void set_speed(Speed speed);
 	void set_k(float k);
 	float get_k() const;
-	String get_log() const;
 private:
 	bool  direction;
 	uint  stepPin;
 	uint  dirPin;
 	uint  speed;
 	float k;
-#ifdef DBG
+#ifdef DBG				
+public:
+	String get_log() const { return log_s; };
 private:
 	String log_s;
-#endif // DBG
+#endif			
 };
 

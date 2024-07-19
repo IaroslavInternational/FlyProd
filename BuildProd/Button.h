@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <GyverButton.h>
 
 #include "Base.h"
 
@@ -8,6 +9,9 @@ public:
 	Button(uint pin);
 public:
 	int getSignal();
+	void tick();
+	bool isClick();
 private:
-	uint pin;
+	GButton btn;
+	uint   pin;			
 };

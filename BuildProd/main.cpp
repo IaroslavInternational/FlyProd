@@ -3,8 +3,6 @@
 #include <GyverTimers.h>
 #include <GyverOLED.h>
 
-
-
 #include "StepEngine.h"
 #include "Button.h"
 
@@ -17,6 +15,14 @@ Button btn_start(3);
 volatile bool show    = 0; // Флаг отрисовки данных на OLED
 unsigned long counter = 0; // Счётчик оборотов
 uint          rounds  = 0; // Кол-во оборотов сначала старта
+uint          param = 0;
+
+String menu[] = 
+{ 
+    "Menu 1", 
+    "Menu 2", 
+    "Menu 3" 
+};
 
 void print_log()
 {
@@ -41,7 +47,31 @@ void setup()
     Timer5.setFrequency(1);
     Timer5.enableISR(CHANNEL_A);
 
+#ifdef DBG
     print_log();
+#endif
+
+    while (true)
+    {
+        btn_start.tick();
+
+        if (btn_start.isClick())
+        {
+            if (param + 1 < 3)
+            {
+                param++;
+            }
+            else
+            {
+                param = 0;
+            }
+        }
+
+        oled.home();
+        oled.println(menu[param]);
+        oled.update();
+        oled.clear();
+    }
 }
 
 ISR(TIMER5_A)

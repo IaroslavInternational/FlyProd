@@ -67,8 +67,3 @@ float StepEngine::get_k() const
 {
 	return k;
 }
-
-String StepEngine::get_log() const
-{
-	return log_s;
-}
