@@ -20,7 +20,7 @@
 #define MICROSTEP     1600  // Микрошаг
 #define ENGINES       2     // Кол-во двигателей
 #define BTN_1_PIN     22    // Пин для кнопки 1
-#define CONFIG_VOLUME 50    // Объем в мл для настройки
+#define CONFIG_VOLUME 50.0f // Объем в мл для настройки
 
 /********************************************************/
 
@@ -56,22 +56,22 @@ uint          param   = 0;  // Выбранный (индекс) пункт меню
 
 String menu[] =
 {
-    "Инфо",
-    "Конфиг"
+    "Информация",
+    "Настройка"
 };
 
 String eng_list[] =
 {
     #ifdef TWO_ENGINE
-    "Двиг. 1",
-    "Двиг. 2",
+    "Насос 1",
+    "Насос 2",
     #endif // TWO_ENGINE
 
     #ifdef FOUR_ENGINE
-    "Двиг. 1",
-    "Двиг. 2",
-    "Двиг. 3",
-    "Двиг. 4",
+    "Насос 1",
+    "Насос 2",
+    "Насос 3",
+    "Насос 4",
     #endif // TWO_ENGINE
 };
 
@@ -100,7 +100,6 @@ void print_log()
 // Вывод информации о пинах двигателй
 void ShowInfo()
 {
-    oled.setScale(1);
     oled.home();
 #ifdef TWO_ENGINE
     oled.println("1) pins(2, 3), k=" + String(eng1.get_k()));
@@ -116,13 +115,11 @@ void ShowInfo()
     oled.clear();
 
     delay(5000);
-    oled.setScale(2);
 }
 
 // Меню выбора двигателя для настройки
 StepEngine* EngineChoose()
 {
-    oled.setScale(1);
     oled.home();
     param = 0;
 
@@ -196,8 +193,6 @@ StepEngine* EngineChoose()
 // Функция калибровки двигателя
 void EngineSetup(StepEngine* engine)
 {
-    oled.setScale(2);
-
     bool isFilled = 0;
     bool isCalibrated = 0;
     uint clicks = 0;
@@ -216,7 +211,9 @@ void EngineSetup(StepEngine* engine)
         if (!isFilled)
         {
             oled.home();
-            oled.println("Наполните трубку");
+            oled.println("Калибровка п.1:");
+            oled.println("Наполните трубку:");
+            oled.println("-> Зажмите кнопку");
             oled.update();
             oled.clear();
 
@@ -237,8 +234,9 @@ void EngineSetup(StepEngine* engine)
         else
         {
             oled.home();
-            oled.println("Наберите");
-            oled.println(String(CONFIG_VOLUME) + "ml");
+            oled.println("Калибровка п.2:");
+            oled.println("Наберите " + String(CONFIG_VOLUME) + "ml");
+            oled.println("-> Зажмите кнопку");
             oled.update();
             oled.clear();
 
@@ -265,17 +263,11 @@ void EngineSetup(StepEngine* engine)
 
         if (isFilled && isCalibrated)
         {
-            float k = float(CONFIG_VOLUME / rounds);
+            float k = CONFIG_VOLUME / float(rounds);
 
             oled.home();
-            oled.println("Настройка завершена");
-            oled.update();
-            oled.clear();
-
-            delay(1500);
-
-            oled.home();
-            oled.println(String(CONFIG_VOLUME) + "ml = " + String(rounds) + "r");
+            oled.println("Калибровка завершена:");
+            oled.println(String(CONFIG_VOLUME) + "ml = " + String(rounds) + " оборотов");
             oled.println("k = " + String(k));
             oled.update();
             oled.clear();
@@ -302,7 +294,7 @@ void setup()
 
     oled.init();
     Wire.setClock(800000L);
-    oled.setScale(2);
+    oled.setScale(1);
     oled.clear();
     oled.update();
  
@@ -343,6 +335,7 @@ void setup()
         }
 
         oled.home();
+        oled.println("Главное меню");
         for (uint i = 0; i < (sizeof(menu) / sizeof(*menu)); i++)
         {
             if (i == param)
