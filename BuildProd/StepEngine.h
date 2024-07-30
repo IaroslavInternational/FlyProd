@@ -21,8 +21,10 @@ public:
 	void spin() const;
 	void switch_dir();
 	void set_speed(Speed speed);
+	uint get_speed() const;
 	void set_k(float k);
 	float get_k() const;
+	void speed_reconfig(float reconfig);
 private:
 	bool  direction;
 	uint  stepPin;

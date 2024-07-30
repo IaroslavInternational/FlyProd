@@ -1,7 +1,7 @@
 /*
 * Исходный файл для калибровки насосов
-* Выбор количества двигателей: ENGINES (либо 2, либо 4)
-* Выбор микрошага двигателя: MICROSTEP (в зависимости от настроек драйвера)
+* Выбор количества насосов: ENGINES (либо 2, либо 4)
+* Выбор микрошага насоса: MICROSTEP (в зависимости от настроек драйвера)
 * Выбор пина сигнала для кнопки 1: BTN_1_PIN (цифровой вход, не ШИМ)
 * Выбор перекачиваемого объёма для калибровки: CONFIG_VOLUME (в мл)
 */
@@ -18,7 +18,7 @@
 /********************* КОНФИГУРАЦИЯ *********************/
 
 #define MICROSTEP     1600  // Микрошаг
-#define ENGINES       2     // Кол-во двигателей
+#define ENGINES       2     // Кол-во насосов
 #define BTN_1_PIN     22    // Пин для кнопки 1
 #define CONFIG_VOLUME 50.0f // Объем в мл для настройки
 
@@ -105,6 +105,7 @@ void ShowInfo()
     oled.println("1) pins(2, 3), k=" + String(eng1.get_k()));
     oled.println("2) pins(4, 5), k=" + String(eng2.get_k()));
 #endif // TWO_ENGINE
+
 #ifdef FOUR_ENGINE
     oled.println("1) pins(2, 3), k=" + String(eng1.get_k()));
     oled.println("2) pins(4, 5), k=" + String(eng2.get_k()));

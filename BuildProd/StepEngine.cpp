@@ -58,6 +58,11 @@ void StepEngine::set_speed(Speed speed)
 	}
 }
 
+uint StepEngine::get_speed() const
+{
+	return speed;
+}
+
 void StepEngine::set_k(float k)
 {
 	this->k = k;
@@ -66,4 +71,10 @@ void StepEngine::set_k(float k)
 float StepEngine::get_k() const
 {
 	return k;
+}
+
+void StepEngine::speed_reconfig(float reconfig)
+{
+	speed *= ((100.0f - reconfig) / 100.0f) + 1.0f;
+	LOG("New Velocity: " + String(speed));
 }

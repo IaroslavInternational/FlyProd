@@ -28,3 +28,8 @@ bool Button::isHolded()
 {
 	return btn.isHolded();
 }
+
+bool Button::isDoubleClick()
+{
+	return btn.isDouble();
+}
