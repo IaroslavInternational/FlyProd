@@ -16,7 +16,7 @@ enum Speed
 class StepEngine
 {
 public:
-	StepEngine(uint stepPin, uint dirPin, Speed speed = S_2, float k = 0.49f);
+	StepEngine(uint stepPin, uint dirPin, Speed speed = S_2, float k = 0.0f);
 public:
 	void spin() const;
 	void switch_dir();

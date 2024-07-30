@@ -1,6 +1,9 @@
 /*
 * Исходный файл для калибровки насосов
 * Выбор количества двигателей: ENGINES (либо 2, либо 4)
+* Выбор микрошага двигателя: MICROSTEP (в зависимости от настроек драйвера)
+* Выбор пина сигнала для кнопки 1: BTN_1_PIN (цифровой вход, не ШИМ)
+* Выбор перекачиваемого объёма для калибровки: CONFIG_VOLUME (в мл)
 */
 
 
@@ -12,9 +15,14 @@
 #include "StepEngine.h"
 #include "Button.h"
 
-#define MICROSTEP 1600  // Микрошаг
-#define ENGINES   2     // Кол-во двигателей
-#define BTN_1_PIN 22    // Пин для кнопки 1
+/********************* КОНФИГУРАЦИЯ *********************/
+
+#define MICROSTEP     1600  // Микрошаг
+#define ENGINES       2     // Кол-во двигателей
+#define BTN_1_PIN     22    // Пин для кнопки 1
+#define CONFIG_VOLUME 50    // Объем в мл для настройки
+
+/********************************************************/
 
 #if ENGINES == 2
     #define TWO_ENGINE 1
@@ -25,6 +33,8 @@
 #ifdef TWO_ENGINE
 StepEngine eng1(2, 3, S_3);  // PUL+, DIR+, Скорость
 StepEngine eng2(4, 5, S_3);  // PUL+, DIR+, Скорость
+
+bool configurated_eng[] = { 0, 0 };
 #endif // TWO_ENGINE
 
 #ifdef FOUR_ENGINE
@@ -32,29 +42,60 @@ StepEngine eng1(2, 3, S_3);  // PUL+, DIR+, Скорость
 StepEngine eng2(4, 5, S_3);  // PUL+, DIR+, Скорость
 StepEngine eng3(6, 7, S_3);  // PUL+, DIR+, Скорость
 StepEngine eng4(8, 9, S_3);  // PUL+, DIR+, Скорость
+
+bool configurated_eng[] = { 0, 0, 0, 0};
 #endif // FOUR_ENGINE
 
 
 GyverOLED<SSD1306_128x32, OLED_BUFFER> oled(0x3C);
 Button btn_start(BTN_1_PIN);
 
-volatile bool show = 0;    // Флаг отрисовки данных на OLED
-unsigned long counter = 0; // Счётчик оборотов
-uint          rounds = 0;  // Кол-во оборотов сначала старта
-uint          param = 0;
+unsigned long counter = 0;  // Счётчик оборотов
+uint          rounds  = 0;  // Кол-во оборотов сначала старта
+uint          param   = 0;  // Выбранный (индекс) пункт меню
 
 String menu[] =
 {
     "Инфо",
-    "Настройка"
+    "Конфиг"
+};
+
+String eng_list[] =
+{
+    #ifdef TWO_ENGINE
+    "Двиг. 1",
+    "Двиг. 2",
+    #endif // TWO_ENGINE
+
+    #ifdef FOUR_ENGINE
+    "Двиг. 1",
+    "Двиг. 2",
+    "Двиг. 3",
+    "Двиг. 4",
+    #endif // TWO_ENGINE
 };
 
 // Вывод лога
 void print_log()
 {
-    Serial.println(eng1.get_log());
-}
+    Serial.println("Settings:");
+    Serial.println("Micro-step:" + String(MICROSTEP));
+    Serial.println("Engines:" + String(ENGINES));
+    Serial.println("Pin BTN 1:" + String(BTN_1_PIN));
+    Serial.println("Volume setup:" + String(CONFIG_VOLUME) + "\n");
 
+#ifdef TWO_ENGINE
+    Serial.println(eng1.get_log());
+    Serial.println(eng2.get_log());
+#endif // TWO_ENGINE
+
+#ifdef FOUR_ENGINE
+    Serial.println(eng1.get_log());
+    Serial.println(eng2.get_log());
+    Serial.println(eng3.get_log());
+    Serial.println(eng4.get_log());
+#endif // FOUR_ENGINE
+}
 
 // Вывод информации о пинах двигателй
 void ShowInfo()
@@ -62,14 +103,14 @@ void ShowInfo()
     oled.setScale(1);
     oled.home();
 #ifdef TWO_ENGINE
-    oled.println("1) pins(2, 3)");
-    oled.println("2) pins(4, 5)");
+    oled.println("1) pins(2, 3), k=" + String(eng1.get_k()));
+    oled.println("2) pins(4, 5), k=" + String(eng2.get_k()));
 #endif // TWO_ENGINE
 #ifdef FOUR_ENGINE
-    oled.println("1) pins(2, 3)");
-    oled.println("2) pins(4, 5)");
-    oled.println("3) pins(6, 7)");
-    oled.println("4) pins(8, 9)");
+    oled.println("1) pins(2, 3), k=" + String(eng1.get_k()));
+    oled.println("2) pins(4, 5), k=" + String(eng2.get_k()));
+    oled.println("3) pins(6, 7), k=" + String(eng3.get_k()));
+    oled.println("4) pins(8, 9), k=" + String(eng4.get_k()));
 #endif // FOUR_ENGINE
     oled.update();
     oled.clear();
@@ -78,22 +119,92 @@ void ShowInfo()
     oled.setScale(2);
 }
 
+// Меню выбора двигателя для настройки
 StepEngine* EngineChoose()
 {
-#ifdef TWO_ENGINE
-#endif // TWO_ENGINE
+    oled.setScale(1);
+    oled.home();
+    param = 0;
+
+    while (true)
+    {
+        btn_start.tick();
+
+        if (btn_start.isClick())  // Переключение меню
+        {
+            if (param + 1 < (sizeof(eng_list) / sizeof(*eng_list)))
+            {
+                param++;
+            }
+            else
+            {
+                param = 0;
+            }
+        }
+        else if (btn_start.isHolded())  // Выбор меню
+        {
+            switch (param)
+            {
+            case 0: 
+                configurated_eng[0] = 1;
+                return &eng1;
+                break;
+            case 1:
+                configurated_eng[1] = 1;
+                return &eng2;
+                break;
+            #ifdef FOUR_ENGINE
+            case 2:
+                configurated_eng[2] = 1;
+                return &eng3;
+                break;
+            case 3:
+                configurated_eng[3] = 1;
+                return &eng4;
+                break;
+            #endif // FOUR_ENGINE
+            default:
+                continue;
+                break;
+            }
+
+            param = 0;
+        }
+
+        oled.home();
+        for (uint i = 0; i < (sizeof(eng_list) / sizeof(*eng_list)); i++)
+        {
+            if (i == param)
+            {
+                oled.print("- ");
+            }
+            
+            if (configurated_eng[i])
+            {
+                oled.println(eng_list[i] + " +");
+            }
+            else
+            {
+                oled.println(eng_list[i]);
+            }
+        }
+        oled.update();
+        oled.clear();
+    }
 }
 
 // Функция калибровки двигателя
-void settings(StepEngine* engine)
+void EngineSetup(StepEngine* engine)
 {
+    oled.setScale(2);
+
     bool isFilled = 0;
     bool isCalibrated = 0;
     uint clicks = 0;
 
     oled.autoPrintln(true);
 
-    for (int i = 0; i < 5; i++)
+    for (short i = 0; i < short(MICROSTEP*0.1); i++)
     {
         engine->spin();
     }
@@ -109,7 +220,7 @@ void settings(StepEngine* engine)
             oled.update();
             oled.clear();
 
-            if (btn_start.isClick())
+            if (btn_start.isHolded())
             {
                 engine->set_speed(S_2);
 
@@ -127,7 +238,7 @@ void settings(StepEngine* engine)
         {
             oled.home();
             oled.println("Наберите");
-            oled.println("50ml");
+            oled.println(String(CONFIG_VOLUME) + "ml");
             oled.update();
             oled.clear();
 
@@ -138,7 +249,7 @@ void settings(StepEngine* engine)
 
             if (clicks != 2 && clicks > 0)
             {
-                for (int i = 0; i < MICROSTEP; i++)
+                for (short i = 0; i < MICROSTEP; i++)
                 {
                     engine->spin();
                     counter++;
@@ -148,20 +259,14 @@ void settings(StepEngine* engine)
             if (clicks == 2)
             {
                 rounds = counter / MICROSTEP;
-
-                oled.home();
-                oled.println("50ml - " + String(rounds) + "r");
-                oled.update();
-                oled.clear();
-
-                delay(1500);
-
                 isCalibrated = 1;
             }
         }
 
         if (isFilled && isCalibrated)
         {
+            float k = float(CONFIG_VOLUME / rounds);
+
             oled.home();
             oled.println("Настройка завершена");
             oled.update();
@@ -170,17 +275,19 @@ void settings(StepEngine* engine)
             delay(1500);
 
             oled.home();
-            oled.println("k = " + String(50.0f / rounds));
+            oled.println(String(CONFIG_VOLUME) + "ml = " + String(rounds) + "r");
+            oled.println("k = " + String(k));
             oled.update();
             oled.clear();
 
-            delay(5000);
+            engine->set_k(k);
+
+            delay(6000);
 
             oled.autoPrintln(false);
 
             return;
         }
-
     }
 }
 
@@ -198,10 +305,7 @@ void setup()
     oled.setScale(2);
     oled.clear();
     oled.update();
-
-    Timer5.setFrequency(1);
-    Timer5.enableISR(CHANNEL_A);
-
+ 
 #ifdef DBG
     print_log();
 #endif
@@ -229,7 +333,7 @@ void setup()
                 ShowInfo();
                 break;
             case 1:             
-                settings(EngineChoose());
+                EngineSetup(EngineChoose());
                 break;
             default:
                 break;
@@ -253,45 +357,4 @@ void setup()
     }
 }
 
-ISR(TIMER5_A)
-{
-    show = 1;
-}
-
-void run()
-{
-    if (show)
-    {
-        oled.home();
-        oled.print(String(rounds * eng1.get_k()) + " ml");
-        oled.update();
-        oled.clear();
-        show = 0;
-    }
-
-    if (!btn_start.getSignal())
-    {
-        for (int i = 0; i < MICROSTEP; i++)
-        {
-            if (btn_start.getSignal())
-            {
-                break;
-            }
-
-            eng1.spin();
-            counter++;
-        }
-
-        rounds = counter / MICROSTEP;
-    }
-    else
-    {
-        rounds = 0;
-        counter = 0;
-    }
-}
-
-void loop()
-{
-
-}
+void loop(){}
