@@ -21,6 +21,26 @@ StepEngine::StepEngine(uint stepPin, uint dirPin, Speed speed, float k)
 	LOG("K: " + String(k));
 }
 
+StepEngine::StepEngine(uint stepPin, uint dirPin, uint speed, float k)
+	:
+	stepPin(stepPin),
+	dirPin(dirPin),
+	direction(HIGH),
+	speed(speed),
+	k(k)
+{
+	pinMode(stepPin, OUTPUT);
+	pinMode(dirPin, OUTPUT);
+
+	digitalWrite(dirPin, HIGH);
+
+	LOG("Engine init");
+	LOG("Pins:");
+	LOG("PUL+ (" + String(stepPin) + "), " + "DIR+ (" + String(dirPin) + ")");
+	LOG("Velocity: " + String(speed));
+	LOG("K: " + String(k));
+}
+
 void StepEngine::spin() const
 {
 	digitalWrite(stepPin, HIGH);

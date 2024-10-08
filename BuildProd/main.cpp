@@ -1,9 +1,11 @@
 /*
 * Исходный файл для калибровки насосов
-* Выбор количества насосов: ENGINES (либо 2, либо 4)
+* Выбор количества насосов: ENGINES (либо 2, либо 3)
 * Выбор микрошага насоса: MICROSTEP (в зависимости от настроек драйвера)
 * Выбор пина сигнала для кнопки 1: BTN_1_PIN (цифровой вход, не ШИМ)
 * Выбор перекачиваемого объёма для калибровки: CONFIG_VOLUME (в мл)
+* Выбор скорости насосов: SPEED (шаг ШИМ в мкс)
+* Добавить пины 8-11, как GND: ADD_GND (1 - включить пины, как GND; 0 - не включать)
 */
 
 
@@ -15,35 +17,37 @@
 #include "StepEngine.h"
 #include "Button.h"
 
+
 /********************* КОНФИГУРАЦИЯ *********************/
 
 #define MICROSTEP     1600  // Микрошаг
-#define ENGINES       2     // Кол-во насосов
+#define ENGINES       3     // Кол-во насосов
 #define BTN_1_PIN     22    // Пин для кнопки 1
 
-#define ENGINE_1 100.0f   // Коэ-нт объёма насоса 1
-#define ENGINE_2 80.0f    // Коэ-нт объёма насоса 2 относительно насоса 1
-#define ENGINE_3 0.0f     // Коэ-нт объёма насоса 3 относительно насоса 1
-#define ENGINE_4 0.0f     // Коэ-нт объёма насоса 4 относительно насоса 1
+#define SPEED    50 / (ENGINES-1)
+#define ADD_GND  1
+
+#define K1 0.6f
+#define K2 0.6f
+#define K3 0.6f
 
 /********************************************************/
 
 #if ENGINES == 2
 #define TWO_ENGINE 1
-#elif ENGINES == 4
+#elif ENGINES == 3
 #define THREE_ENGINE 1
 #endif
 
 #ifdef TWO_ENGINE
-StepEngine eng1(2, 3, S_3, 0.6f);  // PUL+, DIR+, Скорость, k
-StepEngine eng2(4, 5, S_3, 0.6f);  // PUL+, DIR+, Скорость, k
+StepEngine eng1(2, 3, SPEED, K1);  // PUL+, DIR+, Скорость, k
+StepEngine eng2(4, 5, SPEED, K2);  // PUL+, DIR+, Скорость, k
 #endif // TWO_ENGINE
 
 #ifdef THREE_ENGINE
-StepEngine eng1(2, 3, S_3, 0.6f);  // PUL+, DIR+, Скорость, k
-StepEngine eng2(4, 5, S_3, 0.6f);  // PUL+, DIR+, Скорость, k
-StepEngine eng3(6, 7, S_3, 0.6f);  // PUL+, DIR+, Скорость, k
-StepEngine eng4(8, 9, S_3, 0.6f);  // PUL+, DIR+, Скорость, k
+StepEngine eng1(2, 3, SPEED, K1);  // PUL+, DIR+, Скорость, k
+StepEngine eng2(4, 5, SPEED, K2);  // PUL+, DIR+, Скорость, k
+StepEngine eng3(6, 7, 50, K3);  // PUL+, DIR+, Скорость, k
 #endif // THREE_ENGINE
 
 
@@ -51,7 +55,6 @@ GyverOLED<SSD1306_128x32, OLED_BUFFER> oled(0x3C);
 Button btn_start(BTN_1_PIN);
 
 volatile bool show    = 0; // Флаг отрисовки данных на OLED
-volatile bool spin    = 0; // Флаг
 unsigned long counter = 0; // Счётчик оборотов
 uint          rounds  = 0; // Кол-во оборотов сначала старта
 uint          param   = 0; // Выбранный (индекс) пункт меню
@@ -79,7 +82,6 @@ void print_log()
     Serial.println(eng1.get_log());
     Serial.println(eng2.get_log());
     Serial.println(eng3.get_log());
-    Serial.println(eng4.get_log());
 #endif // THREE_ENGINE
 }
 
@@ -93,10 +95,9 @@ void ShowInfo()
 #endif // TWO_ENGINE
 
 #ifdef THREE_ENGINE
-    oled.println("1) k=" + String(eng1.get_k()) + "; s=" + String(ENGINE_1) + "%");
-    oled.println("2) k=" + String(eng2.get_k()) + "; s=" + String(ENGINE_2) + "%");
-    oled.println("3) k=" + String(eng3.get_k()) + "; s=" + String(ENGINE_3) + "%");
-    oled.println("4) k=" + String(eng4.get_k()) + "; s=" + String(ENGINE_4) + "%");
+    oled.println("1) k=" + String(eng1.get_k()) + ";");
+    oled.println("2) k=" + String(eng2.get_k()) + ";");
+    oled.println("3) k=" + String(eng3.get_k()) + ";");
 #endif // THREE_ENGINE
     oled.update();
     oled.clear();
@@ -107,8 +108,21 @@ void ShowInfo()
 // Функция инициализации
 void setup()
 {
-    pinMode(11, OUTPUT);   // GND для OLED
-    digitalWrite(11, LOW); // GND для OLED
+    Timer5.setFrequency(1);
+    Timer5.enableISR(CHANNEL_A);
+
+    #if ADD_GND == 1
+    // Если не хватило пинов для земли
+    {
+        int gnd_pins[] = { 8, 9, 10, 11 }; // Пины для GND
+
+        for (int i = 0; i < (sizeof(gnd_pins) / sizeof(*gnd_pins)); i++)
+        {
+            pinMode(gnd_pins[i], OUTPUT);
+            digitalWrite(gnd_pins[i], LOW);
+        }
+    }
+    #endif
 
     Serial.begin(9600);
     Serial.setTimeout(10);
@@ -118,15 +132,6 @@ void setup()
     oled.setScale(1);
     oled.clear();
     oled.update();
-
-    Timer5.setFrequency(1);
-    Timer5.enableISR(CHANNEL_A);
-
-    Timer1.setFrequency(1000);
-    Timer1.enableISR(CHANNEL_C);
-
-    eng1.speed_reconfig(ENGINE_1);
-    eng2.speed_reconfig(ENGINE_2);
 
 #ifdef DBG
     print_log();
@@ -180,81 +185,40 @@ void setup()
         oled.update();
         oled.clear();
     }
-
-    for (;;) { run(); } // После меню
 }
 
 ISR(TIMER5_A)
 {
     show = 1;
-
-    /*if (spin)
-    {
-        for (int i = 0; i < MICROSTEP; i++)
-        {
-            eng1.spin();
-        }
-    }*/
 }
 
-ISR(TIMER1_C)
+short r = 0;
+void loop()
 {
-    if (spin)
-    {
-        for (int i = 0; i < MICROSTEP; i++)
-        {
-            if (btn_start.getSignal())
-            {
-                spin = 0;
-                break;
-            }
-
-            eng1.spin();
-        }
-    }
-}
-
-short step = 0;
-void run()
-{
-    btn_start.tick();
-
-    if (show)
+    if(show)
     {
         oled.home();
-        oled.print("Компонента 1:");
+        oled.print("Компонента A:");
         oled.println(String(rounds * eng1.get_k()) + " ml");
-        oled.print("Компонента 2:");
+        oled.print("Компонента B:");
         oled.println(String(rounds * eng2.get_k()) + " ml");
         oled.update();
         oled.clear();
         show = 0;
     }
 
+    btn_start.tick();
+
     if (!btn_start.getSignal())
     {
-        spin = 1;
-
-        for (step = 0; step < MICROSTEP; step++)
+        for (r = 0; r < MICROSTEP; r++)
         {
-            if (btn_start.getSignal())
-            {
-                spin = 0;
-                break;
-            }
-
-            //eng1.spin();
+            eng1.spin();
             eng2.spin();
+
             counter++;
         }
 
         rounds = counter / MICROSTEP;
     }
-    else
-    {
-        //rounds = 0;
-        //counter = 0;
-    }
 }
-
-void loop(){}
