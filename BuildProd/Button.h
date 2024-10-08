@@ -12,7 +12,6 @@ public:
 	void tick();
 	bool isClick();
 	bool isHolded();
-	bool isDoubleClick();
 private:
 	GButton btn;
 	uint   pin;			

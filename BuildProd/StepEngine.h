@@ -6,11 +6,11 @@
 
 enum Speed 
 {
-	MIN, // 500 ìêñ
-	S_1, // 250 ìêñ
-	S_2, // 150 ìêñ
-	S_3, // 80  ìêñ
-	MAX, // 50  ìêñ
+	MIN, // 500 Ğ¼ĞºÑ
+	S_1, // 250 Ğ¼ĞºÑ
+	S_2, // 150 Ğ¼ĞºÑ
+	S_3, // 80  Ğ¼ĞºÑ
+	MAX, // 50  Ğ¼ĞºÑ
 } ;
 
 class StepEngine
@@ -19,12 +19,12 @@ public:
 	StepEngine(uint stepPin, uint dirPin, Speed speed = S_2, float k = 0.0f);
 public:
 	void spin() const;
+	void start_spin() const;
+	void end_spin() const;
 	void switch_dir();
 	void set_speed(Speed speed);
-	uint get_speed() const;
 	void set_k(float k);
 	float get_k() const;
-	void speed_reconfig(float reconfig);
 private:
 	bool  direction;
 	uint  stepPin;

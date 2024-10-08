@@ -31,7 +31,7 @@
 #if ENGINES == 2
 #define TWO_ENGINE 1
 #elif ENGINES == 4
-#define FOUR_ENGINE 1
+#define THREE_ENGINE 1
 #endif
 
 #ifdef TWO_ENGINE
@@ -39,12 +39,12 @@ StepEngine eng1(2, 3, S_3, 0.6f);  // PUL+, DIR+, Скорость, k
 StepEngine eng2(4, 5, S_3, 0.6f);  // PUL+, DIR+, Скорость, k
 #endif // TWO_ENGINE
 
-#ifdef FOUR_ENGINE
+#ifdef THREE_ENGINE
 StepEngine eng1(2, 3, S_3, 0.6f);  // PUL+, DIR+, Скорость, k
 StepEngine eng2(4, 5, S_3, 0.6f);  // PUL+, DIR+, Скорость, k
 StepEngine eng3(6, 7, S_3, 0.6f);  // PUL+, DIR+, Скорость, k
 StepEngine eng4(8, 9, S_3, 0.6f);  // PUL+, DIR+, Скорость, k
-#endif // FOUR_ENGINE
+#endif // THREE_ENGINE
 
 
 GyverOLED<SSD1306_128x32, OLED_BUFFER> oled(0x3C);
@@ -75,12 +75,12 @@ void print_log()
     Serial.println(eng2.get_log());
 #endif // TWO_ENGINE
 
-#ifdef FOUR_ENGINE
+#ifdef THREE_ENGINE
     Serial.println(eng1.get_log());
     Serial.println(eng2.get_log());
     Serial.println(eng3.get_log());
     Serial.println(eng4.get_log());
-#endif // FOUR_ENGINE
+#endif // THREE_ENGINE
 }
 
 // Вывод информации о пинах двигателй
@@ -92,12 +92,12 @@ void ShowInfo()
     oled.println("2) k=" + String(eng2.get_k()) + "; s=" + String(ENGINE_2) + "%");
 #endif // TWO_ENGINE
 
-#ifdef FOUR_ENGINE
+#ifdef THREE_ENGINE
     oled.println("1) k=" + String(eng1.get_k()) + "; s=" + String(ENGINE_1) + "%");
     oled.println("2) k=" + String(eng2.get_k()) + "; s=" + String(ENGINE_2) + "%");
     oled.println("3) k=" + String(eng3.get_k()) + "; s=" + String(ENGINE_3) + "%");
     oled.println("4) k=" + String(eng4.get_k()) + "; s=" + String(ENGINE_4) + "%");
-#endif // FOUR_ENGINE
+#endif // THREE_ENGINE
     oled.update();
     oled.clear();
 

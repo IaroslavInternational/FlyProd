@@ -1,9 +1,11 @@
 /*
 * Исходный файл для калибровки насосов
-* Выбор количества насосов: ENGINES (либо 2, либо 4)
+* Выбор количества насосов: ENGINES (либо 2, либо 3)
 * Выбор микрошага насоса: MICROSTEP (в зависимости от настроек драйвера)
 * Выбор пина сигнала для кнопки 1: BTN_1_PIN (цифровой вход, не ШИМ)
 * Выбор перекачиваемого объёма для калибровки: CONFIG_VOLUME (в мл)
+* Выбор скорости насосов: SPEED (шаг ШИМ в мкс)
+* Добавить пины 8-11, как GND: ADD_GND (1 - включить пины, как GND; 0 - не включать)
 */
 
 
@@ -18,33 +20,34 @@
 /********************* КОНФИГУРАЦИЯ *********************/
 
 #define MICROSTEP     1600  // Микрошаг
-#define ENGINES       2     // Кол-во насосов
+#define ENGINES       3     // Кол-во насосов
 #define BTN_1_PIN     22    // Пин для кнопки 1
 #define CONFIG_VOLUME 50.0f // Объем в мл для настройки
+#define SPEED         Speed::MAX
+#define ADD_GND       1
 
 /********************************************************/
 
 #if ENGINES == 2
     #define TWO_ENGINE 1
-#elif ENGINES == 4
-    #define FOUR_ENGINE 1
+#elif ENGINES == 3
+    #define THREE_ENGINE 1
 #endif
 
 #ifdef TWO_ENGINE
-StepEngine eng1(2, 3, S_3);  // PUL+, DIR+, Скорость
-StepEngine eng2(4, 5, S_3);  // PUL+, DIR+, Скорость
+StepEngine eng1(2, 3, SPEED);  // PUL+, DIR+, Скорость
+StepEngine eng2(4, 5, SPEED);  // PUL+, DIR+, Скорость
 
 bool configurated_eng[] = { 0, 0 };
 #endif // TWO_ENGINE
 
-#ifdef FOUR_ENGINE
-StepEngine eng1(2, 3, S_3);  // PUL+, DIR+, Скорость
-StepEngine eng2(4, 5, S_3);  // PUL+, DIR+, Скорость
-StepEngine eng3(6, 7, S_3);  // PUL+, DIR+, Скорость
-StepEngine eng4(8, 9, S_3);  // PUL+, DIR+, Скорость
+#ifdef THREE_ENGINE
+StepEngine eng1(2, 3, SPEED);  // PUL+, DIR+, Скорость
+StepEngine eng2(4, 5, SPEED);  // PUL+, DIR+, Скорость
+StepEngine eng3(6, 7, SPEED);  // PUL+, DIR+, Скорость
 
-bool configurated_eng[] = { 0, 0, 0, 0};
-#endif // FOUR_ENGINE
+bool configurated_eng[] = { 0, 0, 0 };
+#endif // THREE_ENGINE
 
 
 GyverOLED<SSD1306_128x32, OLED_BUFFER> oled(0x3C);
@@ -67,11 +70,10 @@ String eng_list[] =
     "Насос 2",
     #endif // TWO_ENGINE
 
-    #ifdef FOUR_ENGINE
+    #ifdef THREE_ENGINE
     "Насос 1",
     "Насос 2",
-    "Насос 3",
-    "Насос 4",
+    "Насос 3"
     #endif // TWO_ENGINE
 };
 
@@ -89,12 +91,11 @@ void print_log()
     Serial.println(eng2.get_log());
 #endif // TWO_ENGINE
 
-#ifdef FOUR_ENGINE
+#ifdef THREE_ENGINE
     Serial.println(eng1.get_log());
     Serial.println(eng2.get_log());
     Serial.println(eng3.get_log());
-    Serial.println(eng4.get_log());
-#endif // FOUR_ENGINE
+#endif // THREE_ENGINE
 }
 
 // Вывод информации о пинах двигателй
@@ -106,12 +107,11 @@ void ShowInfo()
     oled.println("2) pins(4, 5), k=" + String(eng2.get_k()));
 #endif // TWO_ENGINE
 
-#ifdef FOUR_ENGINE
+#ifdef THREE_ENGINE
     oled.println("1) pins(2, 3), k=" + String(eng1.get_k()));
     oled.println("2) pins(4, 5), k=" + String(eng2.get_k()));
     oled.println("3) pins(6, 7), k=" + String(eng3.get_k()));
-    oled.println("4) pins(8, 9), k=" + String(eng4.get_k()));
-#endif // FOUR_ENGINE
+#endif // THREE_ENGINE
     oled.update();
     oled.clear();
 
@@ -151,16 +151,12 @@ StepEngine* EngineChoose()
                 configurated_eng[1] = 1;
                 return &eng2;
                 break;
-            #ifdef FOUR_ENGINE
+            #ifdef THREE_ENGINE
             case 2:
                 configurated_eng[2] = 1;
                 return &eng3;
                 break;
-            case 3:
-                configurated_eng[3] = 1;
-                return &eng4;
-                break;
-            #endif // FOUR_ENGINE
+            #endif // THREE_ENGINE
             default:
                 continue;
                 break;
@@ -197,6 +193,7 @@ void EngineSetup(StepEngine* engine)
     bool isFilled = 0;
     bool isCalibrated = 0;
     uint clicks = 0;
+    counter = 0;
 
     oled.autoPrintln(true);
 
@@ -227,7 +224,7 @@ void EngineSetup(StepEngine* engine)
                     engine->spin();
                 }
 
-                engine->set_speed(S_3);
+                engine->set_speed(SPEED);
 
                 isFilled = 1;
             }
@@ -287,8 +284,18 @@ void EngineSetup(StepEngine* engine)
 // Функция инициализации
 void setup()
 {
-    pinMode(11, OUTPUT);   // GND для OLED
-    digitalWrite(11, LOW); // GND для OLED
+    #if ADD_GND == 1
+    // Если не хватило пинов для земли
+    {
+        int gnd_pins[] = { 8, 9, 10, 11 }; // Пины для GND
+
+        for (int i = 0; i < (sizeof(gnd_pins) / sizeof(*gnd_pins)); i++)
+        {
+            pinMode(gnd_pins[i], OUTPUT); 
+            digitalWrite(gnd_pins[i], LOW); 
+        }
+    }
+    #endif
 
     Serial.begin(9600);
     Serial.setTimeout(10);
