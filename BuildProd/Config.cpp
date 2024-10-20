@@ -20,11 +20,12 @@
 /********************* КОНФИГУРАЦИЯ *********************/
 
 #define MICROSTEP     1600  // Микрошаг
-#define ENGINES       3     // Кол-во насосов
+#define ENGINES       2     // Кол-во насосов
 #define BTN_1_PIN     22    // Пин для кнопки 1
 #define CONFIG_VOLUME 50.0f // Объем в мл для настройки
 #define SPEED         Speed::MAX
 #define ADD_GND       1
+#define ADD_5V        1
 
 /********************************************************/
 
@@ -287,12 +288,25 @@ void setup()
     #if ADD_GND == 1
     // Если не хватило пинов для земли
     {
-        int gnd_pins[] = { 8, 9, 10, 11 }; // Пины для GND
+        int gnd_pins[] = { 34, 36, 38, 40, 42 }; // Пины для GND
 
         for (int i = 0; i < (sizeof(gnd_pins) / sizeof(*gnd_pins)); i++)
         {
-            pinMode(gnd_pins[i], OUTPUT); 
-            digitalWrite(gnd_pins[i], LOW); 
+            pinMode(gnd_pins[i], OUTPUT);
+            digitalWrite(gnd_pins[i], LOW);
+        }
+    }
+    #endif
+
+    #if ADD_5V == 1
+    // Если не хватило пинов для питания
+    {
+        int v_pins[] = { 26 }; // Пины для 5V
+
+        for (int i = 0; i < (sizeof(v_pins) / sizeof(*v_pins)); i++)
+        {
+            pinMode(v_pins[i], OUTPUT);
+            digitalWrite(v_pins[i], HIGH);
         }
     }
     #endif

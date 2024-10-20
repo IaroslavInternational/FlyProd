@@ -23,13 +23,16 @@
 #define MICROSTEP     1600  // Микрошаг
 #define ENGINES       3     // Кол-во насосов
 #define BTN_1_PIN     22    // Пин для кнопки 1
+#define BTN_2_PIN     24    // Пин для кнопки 2
 
 #define SPEED    50 / (ENGINES-1)
 #define ADD_GND  1
+#define ADD_5V   1
 
-#define K1 0.6f
-#define K2 0.6f
-#define K3 0.6f
+#define K1 0.5f
+#define K2 0.5f
+#define K_REV 0.8f
+#define K_ENG2 K_REV * MICROSTEP
 
 /********************************************************/
 
@@ -47,16 +50,18 @@ StepEngine eng2(4, 5, SPEED, K2);  // PUL+, DIR+, Скорость, k
 #ifdef THREE_ENGINE
 StepEngine eng1(2, 3, SPEED, K1);  // PUL+, DIR+, Скорость, k
 StepEngine eng2(4, 5, SPEED, K2);  // PUL+, DIR+, Скорость, k
-StepEngine eng3(6, 7, 50, K3);  // PUL+, DIR+, Скорость, k
+StepEngine eng3(6, 7, 50, K1);     // PUL+, DIR+, Скорость, k
 #endif // THREE_ENGINE
 
 
 GyverOLED<SSD1306_128x32, OLED_BUFFER> oled(0x3C);
 Button btn_start(BTN_1_PIN);
+Button btn_clean(BTN_2_PIN);
 
 volatile bool show    = 0; // Флаг отрисовки данных на OLED
-unsigned long counter = 0; // Счётчик оборотов
-uint          rounds  = 0; // Кол-во оборотов сначала старта
+uint          counter = 0; // Счётчик оборотов
+float          roundsA  = 0.0f; // Кол-во оборотов сначала старта
+float          roundsB  = 0.0f; // Кол-во оборотов сначала старта
 uint          param   = 0; // Выбранный (индекс) пункт меню
 
 String menu[] =
@@ -114,12 +119,25 @@ void setup()
     #if ADD_GND == 1
     // Если не хватило пинов для земли
     {
-        int gnd_pins[] = { 8, 9, 10, 11 }; // Пины для GND
+        int gnd_pins[] = { 34, 36, 38, 40, 42 }; // Пины для GND
 
         for (int i = 0; i < (sizeof(gnd_pins) / sizeof(*gnd_pins)); i++)
         {
             pinMode(gnd_pins[i], OUTPUT);
             digitalWrite(gnd_pins[i], LOW);
+        }
+    }
+    #endif
+
+    #if ADD_5V == 1
+    // Если не хватило пинов для питания
+    {
+        int v_pins[] = { 26 }; // Пины для 5V
+
+        for (int i = 0; i < (sizeof(v_pins) / sizeof(*v_pins)); i++)
+        {
+            pinMode(v_pins[i], OUTPUT);
+            digitalWrite(v_pins[i], HIGH);
         }
     }
     #endif
@@ -193,32 +211,60 @@ ISR(TIMER5_A)
 }
 
 short r = 0;
+bool is_clean = 0;
 void loop()
 {
     if(show)
     {
+        roundsA = (eng1.get_counter() / MICROSTEP) * eng1.get_k();
+        roundsB = (eng2.get_counter() / MICROSTEP) * eng2.get_k();
+        //Serial.println(String(eng1.get_counter()));
         oled.home();
-        oled.print("Компонента A:");
-        oled.println(String(rounds * eng1.get_k()) + " ml");
-        oled.print("Компонента B:");
-        oled.println(String(rounds * eng2.get_k()) + " ml");
+        oled.print("Комп. A: ");
+        oled.println(String(roundsA) + " ml");
+        oled.print("Комп. B: ");
+        oled.println(String(roundsB) + " ml");
+        if (is_clean)
+        {
+            oled.println("Очистка...");
+            is_clean = 0;
+            eng1.reset_counter();
+            eng2.reset_counter();
+        }
+        else
+        {
+            oled.print("Всего: ");
+            oled.println(String(roundsA + roundsB) + " ml");
+        }
         oled.update();
         oled.clear();
         show = 0;
     }
 
     btn_start.tick();
+    btn_clean.tick();
 
     if (!btn_start.getSignal())
     {
         for (r = 0; r < MICROSTEP; r++)
         {
             eng1.spin();
-            eng2.spin();
-
-            counter++;
+            if (r <= K_ENG2)
+            {
+                eng2.spin();
+            }
+            //counter++;
+        }
+    }
+    else if (!btn_clean.getSignal())
+    {
+        for (r = 0; r < MICROSTEP; r++)
+        {
+            eng3.spin();
         }
 
-        rounds = counter / MICROSTEP;
+        //rounds = 0;
+        //counter = 0;
+        is_clean = 1;
     }
 }

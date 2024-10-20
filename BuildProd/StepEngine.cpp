@@ -39,14 +39,17 @@ StepEngine::StepEngine(uint stepPin, uint dirPin, uint speed, float k)
 	LOG("PUL+ (" + String(stepPin) + "), " + "DIR+ (" + String(dirPin) + ")");
 	LOG("Velocity: " + String(speed));
 	LOG("K: " + String(k));
+
+	log_s = "";
 }
 
-void StepEngine::spin() const
+void StepEngine::spin()
 {
 	digitalWrite(stepPin, HIGH);
 	delayMicroseconds(speed);
 	digitalWrite(stepPin, LOW);
 	delayMicroseconds(speed);
+	counter++;
 }
 
 void StepEngine::start_spin() const
@@ -96,4 +99,14 @@ void StepEngine::set_k(float k)
 float StepEngine::get_k() const
 {
 	return k;
+}
+
+unsigned long long StepEngine::get_counter() const
+{
+	return counter;
+}
+
+void StepEngine::reset_counter()
+{
+	counter = 0;
 }
