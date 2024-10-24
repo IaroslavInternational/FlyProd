@@ -1,11 +1,20 @@
 /*
-* Исходный файл для калибровки насосов
+* ========== Исходный файл основного режима ==========
 * Выбор количества насосов: ENGINES (либо 2, либо 3)
 * Выбор микрошага насоса: MICROSTEP (в зависимости от настроек драйвера)
-* Выбор пина сигнала для кнопки 1: BTN_1_PIN (цифровой вход, не ШИМ)
-* Выбор перекачиваемого объёма для калибровки: CONFIG_VOLUME (в мл)
+* 
+* Выбор пина сигнала для кнопки 1 (насосы): BTN_1_PIN (цифровой вход, не ШИМ)
+* Выбор пина сигнала для кнопки 2 (очистка): BTN_2_PIN (цифровой вход, не ШИМ)
+* Выбор пина сигнала для кнопки 3 (машалка): BTN_3_PIN (цифровой вход, не ШИМ)
+* 
 * Выбор скорости насосов: SPEED (шаг ШИМ в мкс)
-* Добавить пины 8-11, как GND: ADD_GND (1 - включить пины, как GND; 0 - не включать)
+* 
+* Добавить пины [34, 36, 38, 40, 42], как GND: ADD_GND (1 - включить пины, как GND; 0 - не включать)
+* Добавить пины [26], как +5V: ADD_5V (1 - включить пины, как GND; 0 - не включать)
+* 
+* Коэф-ты K1 и K2 для насосов
+* Коэф-ты K_REV: задаёт отношение перкачиваемого объёма насоса 2 от на насоса 1 (диапазон [0; 1])
+* ====================================================
 */
 
 
@@ -24,14 +33,17 @@
 #define ENGINES       3     // Кол-во насосов
 #define BTN_1_PIN     22    // Пин для кнопки 1
 #define BTN_2_PIN     24    // Пин для кнопки 2
+#define BTN_3_PIN     28    // Пин для кнопки 3
+#define ENG_MIX_PIN   8     // Пин для двигателя (мешалки)
+#define ENG_MIX_SPEED 1     // Скорость двигателя (мешалки)
 
-#define SPEED    50 / (ENGINES-1)
-#define ADD_GND  1
-#define ADD_5V   1
+#define SPEED    50 / (ENGINES-1)  // Скорость насосов
+#define ADD_GND  1                 // Добавить GND пины
+#define ADD_5V   1                 // Добавить +5V пины
 
-#define K1 0.5f
-#define K2 0.5f
-#define K_REV 0.8f
+#define K1 0.5f     // Коэф. для насоса 1
+#define K2 0.5f     // Коэф. для насоса 2
+#define K_REV 0.8f  // Коэф. отношения насоса 2 к насосу 1
 #define K_ENG2 K_REV * MICROSTEP
 
 /********************************************************/
@@ -57,18 +69,29 @@ StepEngine eng3(6, 7, 50, K1);     // PUL+, DIR+, Скорость, k
 GyverOLED<SSD1306_128x32, OLED_BUFFER> oled(0x3C);
 Button btn_start(BTN_1_PIN);
 Button btn_clean(BTN_2_PIN);
+Button btn_mix(BTN_3_PIN);
 
-volatile bool show    = 0; // Флаг отрисовки данных на OLED
-uint          counter = 0; // Счётчик оборотов
-float          roundsA  = 0.0f; // Кол-во оборотов сначала старта
-float          roundsB  = 0.0f; // Кол-во оборотов сначала старта
-uint          param   = 0; // Выбранный (индекс) пункт меню
+volatile bool show    = 0;    // Флаг отрисовки данных на OLED
+uint          counter = 0;    // Счётчик оборотов
+float         roundsA = 0.0f; // Кол-во оборотов сначала старта
+float         roundsB = 0.0f; // Кол-во оборотов сначала старта
+uint          param   = 0;    // Выбранный (индекс) пункт меню
 
 String menu[] =
 {
     "Заливка",
     "Информация"
 };
+
+void mix(uint val)
+{
+    val = map(val, 0, 100, 544, 2400);
+
+    digitalWrite(ENG_MIX_PIN, HIGH);
+    delayMicroseconds(val);
+    digitalWrite(ENG_MIX_PIN, LOW);
+    delayMicroseconds(val);
+}
 
 // Вывод лога
 void print_log()
@@ -90,7 +113,7 @@ void print_log()
 #endif // THREE_ENGINE
 }
 
-// Вывод информации о пинах двигателй
+// Вывод информации о пинах двигателей
 void ShowInfo()
 {
     oled.home();
@@ -113,6 +136,9 @@ void ShowInfo()
 // Функция инициализации
 void setup()
 {
+    pinMode(ENG_MIX_PIN, OUTPUT);
+    mix(0);
+
     Timer5.setFrequency(1);
     Timer5.enableISR(CHANNEL_A);
 
@@ -211,14 +237,15 @@ ISR(TIMER5_A)
 }
 
 short r = 0;
-bool is_clean = 0;
+bool  is_clean = 0;
+
 void loop()
 {
     if(show)
     {
         roundsA = (eng1.get_counter() / MICROSTEP) * eng1.get_k();
         roundsB = (eng2.get_counter() / MICROSTEP) * eng2.get_k();
-        //Serial.println(String(eng1.get_counter()));
+        
         oled.home();
         oled.print("Комп. A: ");
         oled.println(String(roundsA) + " ml");
@@ -243,6 +270,7 @@ void loop()
 
     btn_start.tick();
     btn_clean.tick();
+    btn_mix.tick();
 
     if (!btn_start.getSignal())
     {
@@ -253,7 +281,6 @@ void loop()
             {
                 eng2.spin();
             }
-            //counter++;
         }
     }
     else if (!btn_clean.getSignal())
@@ -263,8 +290,10 @@ void loop()
             eng3.spin();
         }
 
-        //rounds = 0;
-        //counter = 0;
         is_clean = 1;
+    }
+    else if (!btn_mix.getSignal())
+    {
+        mix(ENG_MIX_SPEED);
     }
 }
